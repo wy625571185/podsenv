@@ -1,0 +1,329 @@
+#!/usr/bin/env bash
+# podsenv - CocoaPods版本管理工具
+
+set -e
+
+if [ -z "${PODSENV_ROOT}" ]; then
+  export PODSENV_ROOT="${HOME}/.podsenv"
+fi
+
+# 确保必要的目录存在
+mkdir -p "${PODSENV_ROOT}/"{shims,versions}
+
+# 定义命令执行函数
+command_exists() {
+  command -v "$1" >/dev/null 2>&1
+}
+
+# 显示错误信息
+error() {
+  echo "podsenv: $1" >&2
+  exit 1
+}
+
+# 显示帮助信息
+show_help() {
+  cat <<EOF
+用法: podsenv <命令> [<参数>]
+
+命令:
+  version      显示当前使用的CocoaPods版本
+  versions     列出所有已安装的CocoaPods版本
+  install      安装指定版本的CocoaPods
+  uninstall    卸载指定版本的CocoaPods
+  global       设置全局默认版本
+  local        设置当前目录使用的版本
+  which        显示当前使用的pod命令路径
+  rehash       刷新shims
+  exec         使用指定版本执行命令
+  help         显示帮助信息
+
+更多信息请访问: https://github.com/yourusername/podsenv
+EOF
+}
+
+# 获取当前版本
+current_version() {
+  local version_file=""
+  
+  # 首先检查本地版本文件
+  if [ -f ".podsenv-version" ]; then
+    version_file=".podsenv-version"
+  # 然后检查全局版本文件
+  elif [ -f "${PODSENV_ROOT}/version" ]; then
+    version_file="${PODSENV_ROOT}/version"
+  else
+    echo "未设置CocoaPods版本"
+    return 1
+  fi
+  
+  local version="$(cat "$version_file")"
+  echo "$version"
+}
+
+# 列出所有已安装的版本
+list_versions() {
+  local current="$(current_version 2>/dev/null || true)"
+  
+  for version_path in "${PODSENV_ROOT}/versions"/*; do
+    if [ -d "$version_path" ]; then
+      local version="$(basename "$version_path")"
+      if [ "$version" = "$current" ]; then
+        echo "* $version (当前版本)"
+      else
+        echo "  $version"
+      fi
+    fi
+  done
+}
+
+# 安装指定版本
+install_version() {
+  local version="$1"
+  local skip_existing="$2"
+  
+  if [ -z "$version" ]; then
+    error "请指定要安装的CocoaPods版本"
+  fi
+  
+  local version_path="${PODSENV_ROOT}/versions/${version}"
+  
+  # 检查版本是否已安装
+  if [ -d "$version_path" ] && [ "$skip_existing" != "true" ]; then
+    error "CocoaPods版本 $version 已安装。使用 --skip-existing 跳过已安装的版本。"
+  elif [ -d "$version_path" ] && [ "$skip_existing" = "true" ]; then
+    echo "CocoaPods版本 $version 已安装，跳过。"
+    return 0
+  fi
+  
+  echo "安装CocoaPods版本 $version..."
+  
+  # 创建版本目录
+  mkdir -p "$version_path"
+  
+  # 使用gem安装指定版本的CocoaPods
+  GEM_HOME="$version_path" GEM_PATH="$version_path" gem install cocoapods -v "$version" --no-document
+  
+  if [ $? -ne 0 ]; then
+    rm -rf "$version_path"
+    error "安装CocoaPods版本 $version 失败"
+  fi
+  
+  # 创建版本的bin目录和pod命令链接
+  mkdir -p "${version_path}/bin"
+  ln -sf "${version_path}/bin/pod" "${version_path}/bin/pod"
+  
+  echo "CocoaPods版本 $version 安装成功"
+  
+  # 刷新shims
+  rehash_shims
+}
+
+# 卸载指定版本
+uninstall_version() {
+  local version="$1"
+  local force="$2"
+  
+  if [ -z "$version" ]; then
+    error "请指定要卸载的CocoaPods版本"
+  fi
+  
+  local version_path="${PODSENV_ROOT}/versions/${version}"
+  
+  # 检查版本是否已安装
+  if [ ! -d "$version_path" ]; then
+    error "CocoaPods版本 $version 未安装"
+  fi
+  
+  # 检查是否为当前使用的版本
+  local current="$(current_version 2>/dev/null || true)"
+  if [ "$version" = "$current" ] && [ "$force" != "true" ]; then
+    error "CocoaPods版本 $version 当前正在使用。使用 --force 强制卸载。"
+  fi
+  
+  echo "卸载CocoaPods版本 $version..."
+  
+  # 删除版本目录
+  rm -rf "$version_path"
+  
+  echo "CocoaPods版本 $version 卸载成功"
+  
+  # 刷新shims
+  rehash_shims
+}
+
+# 设置全局版本
+set_global_version() {
+  local version="$1"
+  
+  if [ -z "$version" ]; then
+    error "请指定要设置的CocoaPods版本"
+  fi
+  
+  local version_path="${PODSENV_ROOT}/versions/${version}"
+  
+  # 检查版本是否已安装
+  if [ ! -d "$version_path" ]; then
+    error "CocoaPods版本 $version 未安装"
+  fi
+  
+  echo "$version" > "${PODSENV_ROOT}/version"
+  
+  echo "已将全局CocoaPods版本设置为 $version"
+}
+
+# 设置本地版本
+set_local_version() {
+  local version="$1"
+  local unset="$2"
+  
+  if [ "$unset" = "true" ]; then
+    if [ -f ".podsenv-version" ]; then
+      rm -f ".podsenv-version"
+      echo "已取消本地CocoaPods版本设置"
+    else
+      error "当前目录未设置本地CocoaPods版本"
+    fi
+    return 0
+  fi
+  
+  if [ -z "$version" ]; then
+    error "请指定要设置的CocoaPods版本"
+  fi
+  
+  local version_path="${PODSENV_ROOT}/versions/${version}"
+  
+  # 检查版本是否已安装
+  if [ ! -d "$version_path" ]; then
+    error "CocoaPods版本 $version 未安装"
+  fi
+  
+  echo "$version" > ".podsenv-version"
+  
+  echo "已将当前目录的CocoaPods版本设置为 $version"
+}
+
+# 显示当前使用的pod命令路径
+which_pod() {
+  local version="$(current_version)"
+  
+  if [ -z "$version" ]; then
+    error "未设置CocoaPods版本"
+  fi
+  
+  local pod_path="${PODSENV_ROOT}/versions/${version}/bin/pod"
+  
+  if [ ! -f "$pod_path" ]; then
+    error "CocoaPods版本 $version 的pod命令不存在"
+  fi
+  
+  echo "$pod_path"
+}
+
+# 刷新shims
+rehash_shims() {
+  echo "刷新shims..."
+  
+  # 清空shims目录
+  rm -rf "${PODSENV_ROOT}/shims"
+  mkdir -p "${PODSENV_ROOT}/shims"
+  
+  # 创建pod命令的shim
+  cat > "${PODSENV_ROOT}/shims/pod" <<EOF
+#!/usr/bin/env bash
+set -e
+export PODSENV_ROOT="${PODSENV_ROOT}"
+exec "${PODSENV_ROOT}/libexec/podsenv-shim" pod "\$@"
+EOF
+  
+  chmod +x "${PODSENV_ROOT}/shims/pod"
+  
+  echo "shims刷新成功"
+}
+
+# 使用指定版本执行命令
+exec_with_version() {
+  local version="$1"
+  shift
+  
+  if [ -z "$version" ]; then
+    error "请指定要使用的CocoaPods版本"
+  fi
+  
+  local version_path="${PODSENV_ROOT}/versions/${version}"
+  
+  # 检查版本是否已安装
+  if [ ! -d "$version_path" ]; then
+    error "CocoaPods版本 $version 未安装"
+  fi
+  
+  # 设置环境变量
+  export GEM_HOME="$version_path"
+  export GEM_PATH="$version_path"
+  export PATH="${version_path}/bin:$PATH"
+  
+  # 执行命令
+  exec "$@"
+}
+
+# 主命令处理
+case "$1" in
+  "version")
+    current_version
+    ;;
+  "versions")
+    list_versions
+    ;;
+  "install")
+    shift
+    if [ "$1" = "--skip-existing" ]; then
+      shift
+      install_version "$1" "true"
+    else
+      install_version "$1" "false"
+    fi
+    ;;
+  "uninstall")
+    shift
+    if [ "$1" = "--force" ]; then
+      shift
+      uninstall_version "$1" "true"
+    else
+      uninstall_version "$1" "false"
+    fi
+    ;;
+  "global")
+    shift
+    set_global_version "$1"
+    ;;
+  "local")
+    shift
+    if [ "$1" = "--unset" ]; then
+      set_local_version "" "true"
+    else
+      set_local_version "$1" "false"
+    fi
+    ;;
+  "which")
+    shift
+    which_pod
+    ;;
+  "rehash")
+    rehash_shims
+    ;;
+  "exec")
+    shift
+    exec_with_version "$@"
+    ;;
+  "help"|"--help"|"-h")
+    show_help
+    ;;
+  "")
+    show_help
+    ;;
+  *)
+    error "未知命令: $1 (请使用 'podsenv help' 查看帮助)"
+    ;;
+esac
+
+exit 0

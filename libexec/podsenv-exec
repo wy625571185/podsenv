@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+# podsenv-exec - 使用指定版本的CocoaPods执行命令
+
+set -e
+
+if [ -z "${PODSENV_ROOT}" ]; then
+  export PODSENV_ROOT="${HOME}/.podsenv"
+fi
+
+# 显示错误信息
+error() {
+  echo "podsenv-exec: $1" >&2
+  exit 1
+}
+
+# 获取版本和命令
+version="$1"
+shift
+
+if [ -z "$version" ]; then
+  error "请指定要使用的CocoaPods版本"
+fi
+
+# 检查版本是否已安装
+version_path="${PODSENV_ROOT}/versions/${version}"
+if [ ! -d "$version_path" ]; then
+  error "CocoaPods版本 $version 未安装"
+fi
+
+# 设置环境变量
+export GEM_HOME="$version_path"
+export GEM_PATH="$version_path"
+export PATH="${version_path}/bin:$PATH"
+
+# 执行命令
+exec "$@"
