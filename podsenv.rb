@@ -1,10 +1,10 @@
 class Podsenv < Formula
   desc "CocoaPods版本管理工具"
-  homepage "https://github.com/yourusername/podsenv"
-  url "https://github.com/yourusername/podsenv/archive/v1.0.0.tar.gz"
+  homepage "https://github.com/wy625571185/podsenv"
+  url "https://github.com/wy625571185/podsenv/archive/v0.0.1.tar.gz"
   sha256 "这里需要替换为实际的SHA256值"
   license "MIT"
-  head "https://github.com/yourusername/podsenv.git", branch: "main"
+  head "https://github.com/wy625571185/podsenv.git", branch: "main"
 
   bottle do
     sha256 cellar: :any_skip_relocation, arm64_sonoma: "这里需要替换为实际的SHA256值"
@@ -58,11 +58,11 @@ class Podsenv < Formula
         export PATH="$PODSENV_ROOT/shims:$PODSENV_ROOT/bin:$PATH"
       
       然后，您可以安装CocoaPods的不同版本：
-        podsenv install 1.10.1
+        podsenv install 0.0.1
       
       并设置全局或项目特定的版本：
-        podsenv global 1.10.1
-        podsenv local 1.10.1
+        podsenv global 0.0.1
+        podsenv local 0.0.1
     EOS
   end
 

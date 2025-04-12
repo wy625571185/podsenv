@@ -81,20 +81,20 @@ source ~/.bashrc  # 或 ~/.zshrc，取决于你使用的 shell
 ### 安装 CocoaPods 版本
 
 ```bash
-podsenv install 1.10.1
+podsenv install 0.0.1
 ```
 
 ### 设置全局默认版本
 
 ```bash
-podsenv global 1.10.1
+podsenv global 0.0.1
 ```
 
 ### 设置项目特定版本
 
 ```bash
 cd your_project
-podsenv local 1.10.1
+podsenv local 0.0.1
 ```
 
 ### 查看当前使用的版本
@@ -112,7 +112,7 @@ podsenv versions
 ### 使用特定版本执行命令
 
 ```bash
-podsenv exec 1.10.1 pod install
+podsenv exec 0.0.1 pod install
 ```
 
 ## 命令详解
@@ -158,8 +158,8 @@ podsenv install <version>
 
 示例：
 ```bash
-podsenv install 1.10.1
-podsenv install --skip-existing 1.11.3
+podsenv install 0.0.1
+podsenv install --skip-existing 0.0.3
 ```
 
 ### uninstall
@@ -175,8 +175,8 @@ podsenv uninstall <version>
 
 示例：
 ```bash
-podsenv uninstall 1.9.3
-podsenv uninstall --force 1.10.1
+podsenv uninstall 0.0.3
+podsenv uninstall --force 0.0.1
 ```
 
 ### global
@@ -189,7 +189,7 @@ podsenv global <version>
 
 示例：
 ```bash
-podsenv global 1.10.1
+podsenv global 0.0.1
 ```
 
 ### local
@@ -205,7 +205,7 @@ podsenv local <version>
 
 示例：
 ```bash
-podsenv local 1.11.3
+podsenv local 0.0.1
 podsenv local --unset
 ```
 
@@ -240,8 +240,8 @@ podsenv exec <version> <command> [args...]
 
 示例：
 ```bash
-podsenv exec 1.10.1 pod install
-podsenv exec 1.11.3 pod update AFNetworking
+podsenv exec 0.0.1 pod install
+podsenv exec 0.0.3 pod update AFNetworking
 ```
 
 ### help
