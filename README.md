@@ -32,7 +32,7 @@ brew install podsenv
 1. 克隆仓库：
 
 ```bash
-git clone https://github.com/yourusername/podsenv.git
+git clone https://github.com/wy625571185/podsenv.git
 cd podsenv
 ```
 

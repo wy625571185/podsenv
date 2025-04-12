@@ -27,7 +27,7 @@ brew install podsenv
 ### 步骤 1: 下载源代码
 
 ```bash
-git clone https://github.com/yourusername/podsenv.git
+git clone https://github.com/wy625571185/podsenv.git
 cd podsenv
 ```
 
